@@ -1,0 +1,17 @@
+name: combat_tank_rl
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10  # or your preferred version
+  - numpy
+  - pandas
+  - matplotlib
+  - gym
+  - pettingzoo  # for the CombatTank environment
+  - tensorflow  # or pytorch, depending on your preference
+  - opencv  # for image processing
+  - scikit-learn  # for any additional utilities
+  - jupyterlab  # for interactive development
+  - pip
+  - pip:
+      - stable-baselines3  # for reinforcement learning algorithms
