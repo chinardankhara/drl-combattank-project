@@ -7,7 +7,7 @@ from .policy import Policy
 from .utils import discount_rewards, DEVICE
 
 class Agent:
-    def __init__(self, name, state_dimension, num_actions, hidden_dimension, learning_rate, gamma=0.99, obs_dim = (3, 250, 160), checkpoints_dir="./checkpoints"):
+    def __init__(self, name, state_dimension, num_actions, hidden_dimension, learning_rate, obs_dim, gamma=0.99, checkpoints_dir="./checkpoints"):
         self.name = name
         self.gamma = gamma
         self.state_dimension = state_dimension
@@ -54,7 +54,6 @@ class Agent:
         
     def optimize(self, loss_fn):
         actions, probs, rewards = zip(*self.cache)
-        self.clear_cache()
         
         discounted_rewards = discount_rewards(rewards, self.gamma)
         
@@ -106,6 +105,7 @@ class Agent:
             'gamma': self.gamma,
             'name': self.name,
             'checkpoints_dir': self.storage_path,
+            'obs_dim': self.obs_dim,
         }, path)
         
     
@@ -122,6 +122,7 @@ def load(path: str):
         num_actions=checkpoint['num_actions'],
         hidden_dimension=checkpoint['hidden_dimension'],
         learning_rate=checkpoint['learning_rate'],
+        obs_dim=checkpoint['obs_dim'],
         gamma=checkpoint['gamma'],
         checkpoints_dir=checkpoint['checkpoints_dir'],
     )

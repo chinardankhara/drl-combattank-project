@@ -65,7 +65,6 @@ def save_episode_as_gif(
     env,
     agents,
     max_steps=3_000,
-    primary_agent="first_0",
     save_path="episode.gif",
     fps=10,
 ):
