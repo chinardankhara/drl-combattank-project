@@ -7,16 +7,21 @@ from .policy import Policy
 from .utils import discount_rewards, DEVICE
 
 class Agent:
-    def __init__(self, name, state_dimension, num_actions, hidden_dimension, learning_rate, gamma=0.99, checkpoints_dir="./checkpoints"):
+    def __init__(self, name, state_dimension, num_actions, hidden_dimension, learning_rate, gamma=0.99, obs_dim = (3, 250, 160), checkpoints_dir="./checkpoints"):
         self.name = name
         self.gamma = gamma
         self.state_dimension = state_dimension
         self.hidden_dimension = hidden_dimension
         self.num_actions = num_actions
         self.learning_rate = learning_rate
+        self.obs_dim = obs_dim  # Observation is 3-channel image with dimensions 250x160
+        C, H, W = self.obs_dim
         
         self.policy = Policy(
-            state_dimension, num_actions, hidden_dimension=hidden_dimension
+            state_dimension, 
+            num_actions, 
+            hidden_dimension, 
+            C, H, W
         ).to(DEVICE)
         
         self.optimizer = Adam(self.policy.parameters(), learning_rate)
@@ -88,7 +93,8 @@ class Agent:
         
         # Save model state
         torch.save({
-            'policy_state_dict': self.policy.state_dict(),
+            'policy_model': self.policy.network.state_dict(),
+            'vision_model': self.policy.vision_enc.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'total_losses': self.total_losses,
             'total_rewards': self.total_rewards,
@@ -102,30 +108,30 @@ class Agent:
             'checkpoints_dir': self.storage_path,
         }, path)
         
-    @classmethod
-    def load(cls, path: str):
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"No saved agent found at {path}")
-        
-        checkpoint = torch.load(path)
-        
-        # Create a new agent instance with the saved parameters
-        #(self, name, state_dimension, num_actions, hidden_dimension, learning_rate, loss, gamma=0.99, checkpoints_dir="./checkpoints")
-        agent = cls(
-            name=checkpoint['name'],
-            state_dimension=checkpoint['state_dimension'],
-            num_actions=checkpoint['num_actions'],
-            hidden_dimension=checkpoint['hidden_dimension'],
-            learning_rate=checkpoint['learning_rate'],
-            gamma=checkpoint['gamma'],
-            checkpoints_dir=checkpoint['checkpoints_dir'],
-        )
-        
-        # Load the saved state
-        agent.policy.load_state_dict(checkpoint['policy_state_dict'])
-        agent.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        agent.total_losses = checkpoint['total_losses']
-        agent.total_rewards = checkpoint['total_rewards']
-        agent.score = checkpoint['score']
-        
-        return agent
+    
+def load(path: str):
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"No saved agent found at {path}")
+    
+    checkpoint = torch.load(path)
+    
+    # Create a new agent instance with the saved parameters
+    agent = Agent(
+        name=checkpoint['name'],
+        state_dimension=checkpoint['state_dimension'],
+        num_actions=checkpoint['num_actions'],
+        hidden_dimension=checkpoint['hidden_dimension'],
+        learning_rate=checkpoint['learning_rate'],
+        gamma=checkpoint['gamma'],
+        checkpoints_dir=checkpoint['checkpoints_dir'],
+    )
+    
+    # Load the saved state
+    agent.policy.network.load_state_dict(checkpoint['policy_model'])
+    agent.policy.vision_enc.load_state_dict(checkpoint['vision_model'])
+    agent.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    agent.total_losses = checkpoint['total_losses']
+    agent.total_rewards = checkpoint['total_rewards']
+    agent.score = checkpoint['score']
+    
+    return agent

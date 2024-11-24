@@ -11,44 +11,40 @@ class Eyes(nn.Module):
     def __init__(self, latent_dim, in_channels):
         super(Eyes, self).__init__()
         self.in_channels = in_channels
+        self.latent_dim = latent_dim
         
-        # Reduce number of channels and feature maps
-        self.conv_layers = nn.Sequential(
-            nn.Conv2d(self.in_channels, 4, kernel_size=4, stride=4, padding=0), 
-            nn.ReLU(),
-            nn.Conv2d(4, 8, kernel_size=4, stride=4, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(8, 4, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-        )
-        
+        self.conv1 = nn.Conv2d(self.in_channels, 4, kernel_size=4, stride=4, padding=0)
+        self.conv2 = nn.Conv2d(4, 8, kernel_size=4, stride=4, padding=0)
+        self.conv3 = nn.Conv2d(8, 4, kernel_size=3, stride=2, padding=1)
+        self.activation = nn.ReLU()
+
         # Calculate the flattened size 
         self._to_linear = 4 * 8 * 5  # New dimensions after convolutions
         
-        self.fc_layers = nn.Sequential(
-            nn.Linear(self._to_linear, latent_dim)
-        )
+        self.fc = nn.Linear(self._to_linear, self.latent_dim)
+
 
     def forward(self, x):
-        x = self.conv_layers(x)
+        x = self.activation(self.conv1(x))
+        x = self.activation(self.conv2(x))
+        x = self.activation(self.conv3(x))
         x = x.view(x.size(0), -1)
-        return self.fc_layers(x)
+        x = self.fc(x)
+        return x
 
 
 class Network(nn.Module):
     def __init__(self, in_dimension: int, hidden_dimension: int, out_dimension: int):
-        self.layers = nn.Sequential(
-            nn.Linear(in_dimension, hidden_dimension), 
-            nn.ReLU(),
-            
-            nn.Linear(hidden_dimension, hidden_dimension), 
-            nn.ReLU(),
-            
-            nn.Linear(hidden_dimension, out_dimension)
-        )
+        super(Network, self).__init__()
+        self.fc1 = nn.Linear(in_dimension, hidden_dimension)
+        self.fc2 = nn.Linear(hidden_dimension, hidden_dimension)
+        self.fc3 = nn.Linear(hidden_dimension, out_dimension)
+    
     def forward(self, x):
-        x = self.layers(x)
-        return x 
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
 
 class Policy(nn.Module):
@@ -59,7 +55,7 @@ class Policy(nn.Module):
             hidden_dimension: int,
             in_channels, 
             height, 
-            width
+            width,
     ):
         super(Policy, self).__init__()
         
@@ -67,8 +63,7 @@ class Policy(nn.Module):
         self.height = height 
         self.width = width
         
-        self.vision_enc = Eyes(latent_dimension, self.in_channels).to(DEVICE)
-        
+        self.vision_enc = Eyes(latent_dimension, self.in_channels)#.to(DEVICE)
         self.network = Network(
             latent_dimension, hidden_dimension, num_actions
         )

@@ -15,6 +15,11 @@ from PIL import Image
 import time
 import json
 
+def loss_fn(
+        epoch_log_probability_actions: torch.Tensor, epoch_action_rewards: torch.Tensor
+    ) -> torch.Tensor:
+    return -1.0 * (epoch_log_probability_actions * epoch_action_rewards).mean()
+
 
 def discount_rewards(epoch_action_rewards, gamma):
     discounted_rewards = []
