@@ -11,6 +11,11 @@ from typing import List, Tuple
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from PIL import Image
+from collections import deque
+import random
+from dataclasses import dataclass
+from typing import Tuple, Dict, List, Optional
+
 
 import time
 import json
@@ -130,3 +135,97 @@ def save_episode_as_gif(
         )
 
     return save_path
+
+@dataclass
+class SACTransition:
+    """Single transition in replay buffer"""
+    state: np.ndarray
+    action: np.ndarray
+    reward: float
+    next_state: np.ndarray
+    done: bool
+
+class ReplayBuffer:
+    """Experience replay buffer for SAC"""
+    def __init__(self, capacity: int):
+        self.buffer = deque(maxlen=capacity)
+    
+    def push(self, transition: SACTransition):
+        """Add transition to buffer"""
+        self.buffer.append(transition)
+    
+    def sample(self, batch_size: int) -> Tuple[torch.Tensor, ...]:
+        """Sample random batch of transitions"""
+        transitions = random.sample(self.buffer, batch_size)
+        
+        # Separate transitions into batches
+        batch = SACTransition(*zip(*transitions))
+        
+        # Convert to tensors and stack
+        states = tensor(np.stack(batch.state))
+        actions = tensor(np.stack(batch.action))
+        rewards = tensor(np.stack(batch.reward))
+        next_states = tensor(np.stack(batch.next_state))
+        dones = tensor(np.stack(batch.done), dtype=torch.float32)
+        
+        return states, actions, rewards, next_states, dones
+    
+    def __len__(self) -> int:
+        return len(self.buffer)
+
+def sac_critic_loss_fn(
+    q_values: torch.Tensor,
+    target_q_values: torch.Tensor,
+    rewards: torch.Tensor,
+    dones: torch.Tensor,
+    gamma: float = 0.99
+) -> torch.Tensor:
+    """
+    Soft Q-Learning loss
+    
+    Args:
+        q_values: Current Q-values
+        target_q_values: Target Q-values
+        rewards: Batch of rewards
+        dones: Batch of done flags
+        gamma: Discount factor
+    """
+    # Calculate target using Bellman equation
+    target = rewards + gamma * (1 - dones) * target_q_values
+    
+    # MSE loss between current and target Q-values
+    return F.mse_loss(q_values, target.detach())
+
+def sac_actor_loss_fn(
+    q_values: torch.Tensor,
+    log_probs: torch.Tensor,
+    alpha: float
+) -> torch.Tensor:
+    """
+    Policy loss with entropy regularization
+    
+    Args:
+        q_values: Q-values for the actions
+        log_probs: Log probabilities of the actions
+        alpha: Temperature parameter for entropy
+    """
+    # Policy loss is Q-value minus entropy regularization
+    return (alpha * log_probs - q_values).mean()
+
+def soft_update(
+    target_params: torch.nn.ParameterList,
+    source_params: torch.nn.ParameterList,
+    tau: float = 0.005
+) -> None:
+    """
+    Soft update for target networks
+    
+    Args:
+        target_params: Parameters to update
+        source_params: Source parameters
+        tau: Update rate (default: 0.005)
+    """
+    for target, source in zip(target_params, source_params):
+        target.data.copy_(
+            tau * source.data + (1.0 - tau) * target.data
+        )
