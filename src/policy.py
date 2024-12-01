@@ -49,6 +49,16 @@ class Network(nn.Module):
         return x
 
 
+class QNetwork(Network):
+    """Q-Network for SAC critics - reuses base Network class"""
+    def __init__(self, in_dimension: int, hidden_dimension: int):
+        super().__init__(in_dimension, hidden_dimension, out_dimension=1)
+        
+    def forward(self, state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
+        x = torch.cat([state, action], dim=-1)
+        return super().forward(x)
+
+
 class Policy(nn.Module):
     def __init__(
             self,
@@ -153,7 +163,7 @@ class Policy(nn.Module):
         pi = self.pi(state)
         action = pi.sample()
         return int(action)
-    
+      
 
 class PolicySAC(nn.Module):
     def __init__(
@@ -237,7 +247,7 @@ class PolicySAC(nn.Module):
         q2 = self.critic2_target(state, action)
         return q1, q2
 
-
+      
 class ValueFunctionQ(nn.Module):
     def __init__(
             self,
