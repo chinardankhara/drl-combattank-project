@@ -6,7 +6,7 @@ from torch.optim import Adam
 from .policy import PolicySAC
 from .utils import (
     DEVICE, tensor, ReplayBuffer, SACTransition,
-    soft_update, critic_loss_fn, actor_loss_fn
+    soft_update, sac_critic_loss_fn, sac_actor_loss_fn
 )
 
 class AgentSAC:
@@ -66,7 +66,7 @@ class AgentSAC:
         observation = env.last()[0]
         action, log_prob = self.policy.sample(observation)
         
-        env.step(action.cpu().numpy())
+        env.step(action.detach().cpu().numpy())
         next_observation = env.last()[0]
         reward = env.last()[1]
         done = env.last()[2]
