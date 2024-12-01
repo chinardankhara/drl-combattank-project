@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from torch.distributions.categorical import Categorical
 from torch.distributions import Normal
-from typing import Tuple
+from typing import Tuple, Optional
 
 # local import 
 from .utils import DEVICE, tensor
@@ -29,7 +29,8 @@ class Eyes(nn.Module):
         x = self.activation(self.conv1(x))
         x = self.activation(self.conv2(x))
         x = self.activation(self.conv3(x))
-        x = x.view(x.size(0), -1)
+        # x = x.view(x.size(0), -1)
+        x = x.reshape(x.size(0), -1)  # swapped from view to reshape for dqn compatibility but should work for reinforce too
         x = self.fc(x)
         return x
 
@@ -162,7 +163,7 @@ class Policy(nn.Module):
         pi = self.pi(state)
         action = pi.sample()
         return int(action)
-
+      
 
 class PolicySAC(nn.Module):
     def __init__(
@@ -245,3 +246,118 @@ class PolicySAC(nn.Module):
         q1 = self.critic1_target(state, action)
         q2 = self.critic2_target(state, action)
         return q1, q2
+
+      
+class ValueFunctionQ(nn.Module):
+    def __init__(
+            self,
+            latent_dimension: int,
+            num_actions: int,
+            hidden_dimension: int,
+            in_channels,
+            height, 
+            width,
+    ):
+        super(ValueFunctionQ, self).__init__()
+        
+        self.in_channels = in_channels
+        self.height = height 
+        self.width = width
+        self.vision_enc = Eyes(latent_dimension, self.in_channels)
+
+        self.network = Network(
+            latent_dimension, hidden_dimension, num_actions
+        )
+
+    def __call__(
+            self, state: np.ndarray, action: Optional[int] = None
+    ) -> torch.Tensor:
+        """
+        Computes the Q-values Q(s, a) for given states and optionally for specific actions.
+
+        Args:
+            state (np.ndarray): The input state.
+            action (Optional[int], optional): The action for which to compute the Q-value. Defaults to None.
+
+        Returns:
+            torch.Tensor: The Q-values.
+
+        TODO: Implement the __call__ method to return Q-values for the given state and action.
+        This method is intended to compute Q(s, a).
+        """
+        q_vals = self.forward(state)
+        if action is not None:
+            return q_vals[action]
+        return q_vals
+
+    def forward(self, observation: np.ndarray) -> torch.Tensor:
+        """
+        Forward pass of the ValueFunctionQ network.
+
+        Args:
+            state (np.ndarray): The input state.
+
+        Returns:
+            torch.Tensor: The Q-values for each action.
+
+        TODO: Implement the forward method to compute Q-values for the given state.
+        You can use the self.network to forward the input.
+        """
+        obs_tensor = tensor(observation)
+        if obs_tensor.dim() == 4:
+            obs_tensor = obs_tensor.permute(0, 3, 1, 2)
+        else:
+            obs_tensor = obs_tensor.permute(2, 0, 1).unsqueeze(0)
+        obs_tensor = obs_tensor.view(-1, self.in_channels, self.height, self.width)
+        latent = self.vision_enc(obs_tensor)
+        logits = self.network(latent)
+        return logits
+
+    def greedy(self, state: np.ndarray) -> torch.Tensor:
+        """
+        Selects the action with the highest Q-value for a given state.
+
+        Args:
+            state (np.ndarray): The input state.
+
+        Returns:
+            torch.Tensor: The action with the highest Q-value.
+
+        TODO: Implement the greedy method to select the best action based on Q-values.
+        This method is intended for greedy sampling.
+        """
+        q_vals = self.forward(state)
+        return torch.argmax(q_vals).item()
+
+    def action(self, state: np.ndarray) -> torch.Tensor:
+        """
+        Returns the greedy action for the given state.
+
+        Args:
+            state (np.ndarray): The input state.
+
+        Returns:
+            torch.Tensor: The selected action.
+
+        TODO: Implement the action method to return the greedy action.
+        """
+        return self.greedy(state)
+
+    def V(self, state: np.ndarray, policy: Policy) -> float:
+        """
+        Computes the expected value V(s) of the state under the given policy.
+
+        Args:
+            state (np.ndarray): The input state.
+            policy (Policy): The policy to evaluate.
+
+        Returns:
+            float: The expected value.
+
+        TODO: Implement the V method to compute the expected value of the state under the policy.
+        This method is intended to return V(s).
+        """
+        q_vals = self.forward(state)
+        action_distr = policy.pi(state)
+        expected_value = torch.sum(action_distr.probs * q_vals)
+        return expected_value.item()

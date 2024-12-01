@@ -25,6 +25,12 @@ def loss_fn(
     ) -> torch.Tensor:
     return -1.0 * (epoch_log_probability_actions * epoch_action_rewards).mean()
 
+def loss_fn_dqn(
+            value_batch: torch.Tensor, target_batch: torch.Tensor
+    ) -> torch.Tensor:
+        mse = nn.MSELoss()
+        return mse(value_batch, target_batch)
+
 
 def discount_rewards(epoch_action_rewards, gamma):
     discounted_rewards = []
@@ -102,7 +108,10 @@ def save_episode_as_gif(
     for step, agent_name in enumerate(env.agent_iter()):
         agent = agents[agent_name]
 
-        action, log_prob = agent.policy.sample(observation)
+        if hasattr(agent, 'policy'):
+            action, log_prob = agent.policy.sample(observation)
+        else:  # for dqn
+            action = agent.epsilon_greedy_action(observation)
 
         env.step(action)
         observation, reward, _, _, _ = env.last()
