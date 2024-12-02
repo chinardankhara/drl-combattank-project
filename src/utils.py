@@ -28,8 +28,8 @@ def loss_fn(
 def loss_fn_dqn(
             value_batch: torch.Tensor, target_batch: torch.Tensor
     ) -> torch.Tensor:
-        mse = nn.MSELoss()
-        return mse(value_batch, target_batch)
+        huber = nn.HuberLoss()
+        return huber(value_batch, target_batch)
 
 
 def discount_rewards(epoch_action_rewards, gamma):

@@ -52,6 +52,10 @@ class Agent_dqn:
         self.eps_decay = 0.999
         self.epsilon = self.eps_start
         
+        self.target_update_freq = 1000  # Update every 1000 steps
+        self.steps = 0  # Track total steps
+        self.tau = 0.005  # Soft update parameter
+        
     
     def update_cache(self, *args):
         self.cache.append(args)
@@ -67,7 +71,7 @@ class Agent_dqn:
             q_values = self.Q(state_tensor)
             return torch.argmax(q_values).item()
         
-    def take_action(self, env, cache=True):
+    def take_action(self, env, cache=False):
         observation = env.last()[0]
         action = self.epsilon_greedy_action(observation)
         
@@ -113,7 +117,7 @@ class Agent_dqn:
         actions_tensor = torch.tensor(actions, dtype=torch.int64).unsqueeze(1)
         q_vals = self.Q(states_tensor).gather(1, actions_tensor)
 
-        loss_val = loss_fn(q_vals, targets)
+        loss_val = nn.SmoothL1Loss()(q_vals, targets.unsqueeze(1))
         self.optimizer.zero_grad()
         loss_val.backward()
         self.optimizer.step()
@@ -124,6 +128,17 @@ class Agent_dqn:
         reward_item = rewards.sum().item()
         self.total_losses.append(loss_item)
         self.total_rewards.append(reward_item)
+
+        # Add target network update
+        self.steps += 1
+        if self.steps % self.target_update_freq == 0:
+            # Either hard update:
+            #self.target_Q.load_state_dict(self.Q.state_dict())
+            # Or soft update:
+            for target_param, param in zip(self.target_Q.parameters(), self.Q.parameters()):
+                target_param.data.copy_(
+                    self.tau * param.data + (1.0 - self.tau) * target_param.data
+                )
 
         return loss_item, reward_item
 
