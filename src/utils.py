@@ -94,6 +94,9 @@ def save_episode_as_gif(
         str: Path where the GIF was saved
     """
     env.reset()
+    
+    if os.path.dirname(save_path) != "":
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     # List to store frames
     frames = []

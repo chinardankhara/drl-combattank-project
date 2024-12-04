@@ -1,5 +1,6 @@
 import torch 
 import torch.nn as nn 
+import torch.nn.functional as F
 import numpy as np
 from torch.distributions.categorical import Categorical
 from torch.distributions import Normal
@@ -23,6 +24,8 @@ class Eyes(nn.Module):
         self._to_linear = 4 * 8 * 5  # New dimensions after convolutions
         
         self.fc = nn.Linear(self._to_linear, self.latent_dim)
+        
+        self.activation_maps = None
 
 
     def forward(self, x):
@@ -84,6 +87,21 @@ class Policy(nn.Module):
         self.num_actions = num_actions
         self.hidden_dimension = hidden_dimension
         
+    def observe(self, observation: np.ndarray) -> torch.Tensor:
+        """
+        Converts an observation to a latent representation.
+
+        Args:
+            observation (np.ndarray): The input observation.
+
+        Returns:
+            torch.Tensor: The latent representation of the observation.
+
+        You can use the self.vision_enc to convert the observation to a latent representation.
+        """
+        obs_tensor = tensor(observation).permute(2, 0, 1).view(-1, self.in_channels, self.height, self.width) # CHW
+        latent = self.vision_enc(obs_tensor)
+        return latent
 
     def forward(self, observation: np.ndarray) -> torch.Tensor:
         """
@@ -97,9 +115,8 @@ class Policy(nn.Module):
 
         You can use the self.network to forward the input.
         """
-        obs_tensor = tensor(observation).permute(2, 0, 1).view(-1, self.in_channels, self.height, self.width) # CHW
-        letent = self.vision_enc(obs_tensor)
-        logits = self.network(letent)
+        latent = self.observe(observation)
+        logits = self.network(latent)
         return logits
 
     def pi(self, state: np.ndarray) -> Categorical:

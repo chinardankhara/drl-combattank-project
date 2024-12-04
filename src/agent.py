@@ -52,32 +52,40 @@ class Agent:
         
         return reward == 1
         
-    def optimize(self, loss_fn):
-        actions, probs, rewards = zip(*self.cache)
+    def optimize(self, epochs):
+        total_loss = 0
+        total_reward = 0
         
-        discounted_rewards = discount_rewards(rewards, self.gamma)
+        for _ in range(epochs):
+            actions, probs, rewards = zip(*self.cache)
+            
+            discounted_rewards = discount_rewards(rewards, self.gamma)
+            
+            # Convert to tensors
+            action_probs_tensor = torch.stack(probs)
+            reward_tensor = torch.tensor(discounted_rewards, dtype=torch.float32)
+            
+            # Normalize the rewards (advantage)
+            reward_tensor = (reward_tensor - reward_tensor.mean()) / (reward_tensor.std() + 1e-18)
+            
+            # Calculate the policy loss
+            advantage = reward_tensor.to(DEVICE)
+            policy_loss = -1.0 * (action_probs_tensor * advantage).mean()
+            
+            self.optimizer.zero_grad()
+            policy_loss.backward()
+            self.optimizer.step()
+            
+            total_loss   += policy_loss.item()
+            total_reward += reward_tensor.sum().item()
+
+        loss_avg = total_loss / epochs
+        reward_avg = total_reward / epochs
         
-        # Convert to tensors
-        action_probs_tensor = torch.stack(probs)
-        reward_tensor = torch.tensor(discounted_rewards, dtype=torch.float32)
+        self.total_losses.append(loss_avg)
+        self.total_rewards.append(reward_avg)
         
-        # Normalize the rewards (advantage)
-        reward_tensor = (reward_tensor - reward_tensor.mean()) / (reward_tensor.std() + 1e-18)
-        
-        # Calculate the policy loss
-        advantage = reward_tensor.to(DEVICE)
-        policy_loss = loss_fn(action_probs_tensor, advantage) 
-        
-        self.optimizer.zero_grad()
-        policy_loss.backward()
-        self.optimizer.step()
-        
-        loss_item   = policy_loss.item()
-        reward_item = reward_tensor.sum().item()
-        self.total_losses.append(loss_item)
-        self.total_rewards.append(reward_item)
-        
-        return loss_item, reward_item
+        return loss_avg, reward_avg
     
     def save(self, path: str=None):
         
