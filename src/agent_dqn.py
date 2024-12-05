@@ -165,8 +165,11 @@ class Agent_dqn:
             'hidden_dimension': self.hidden_dimension,
             'num_actions': self.num_actions,
             'learning_rate': self.learning_rate,
+            'batch_size': self.batch_size,
             'gamma': self.gamma,
+            'name': self.name,
             'epsilon': self.epsilon,
+            'checkpoints_dir': self.storage_path,
             'obs_dim': self.obs_dim,
         }, path)
         
@@ -184,14 +187,15 @@ def load_dqn(path: str):
         num_actions=checkpoint['num_actions'],
         hidden_dimension=checkpoint['hidden_dimension'],
         learning_rate=checkpoint['learning_rate'],
+        batch_size=checkpoint['batch_size'],
         obs_dim=checkpoint['obs_dim'],
         gamma=checkpoint['gamma'],
         checkpoints_dir=checkpoint['checkpoints_dir'],
     )
     
     # Load the saved state
-    agent.q_network.load_state_dict(checkpoint['q_network_state_dict'])
-    agent.target_network.load_state_dict(checkpoint['target_network_state_dict'])
+    agent.Q.load_state_dict(checkpoint['q_network_state_dict'])
+    agent.target_Q.load_state_dict(checkpoint['target_network_state_dict'])
     agent.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     agent.total_rewards = checkpoint['total_rewards']
     agent.score = checkpoint['score']
