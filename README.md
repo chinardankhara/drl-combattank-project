@@ -9,7 +9,9 @@ In this experiment, we demonstrate:
 - This setup helps us understand emergent behaviors in competitive scenarios
 
 ## 2. Vision Encoding Analysis
-![Vision Activation Patterns](tank_vision_activations.gif)
+![Vision Activation Patterns for battle tanks](tanks_vision_activations.gif)
+
+![Vision Activation Patterns for space war](space_vision_activations.gif)
 
 ### Key Observations:
 - The visualization shows neural activation patterns in the agents' vision encoders
