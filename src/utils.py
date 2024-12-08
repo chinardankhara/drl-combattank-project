@@ -15,10 +15,98 @@ from collections import deque
 import random
 from dataclasses import dataclass
 from typing import Tuple, Dict, List, Optional
-
+from matplotlib.colors import LinearSegmentedColormap
 
 import time
 import json
+
+
+def gif_to_heatmap(gif_path, output_path='heatmap.png', size=(10, 10), title='Movement Heatmap'):
+    """
+    Convert a GIF to a heatmap using pastel colors, where static areas are dark and 
+    movement is shown in soft pastel colors.
+    
+    Args:
+        gif_path (str): Path to input GIF file
+        output_path (str): Path to save the output heatmap
+        size (tuple): Figure size (width, height) in inches
+        title (str): Custom title for the heatmap
+    """
+    # Open the GIF file
+    gif = Image.open(gif_path)
+    
+    # Get the number of frames
+    n_frames = 0
+    try:
+        while True:
+            gif.seek(n_frames)
+            n_frames += 1
+    except EOFError:
+        pass
+    
+    # Reset to first frame
+    gif.seek(0)
+    
+    # Convert first frame to array to get dimensions
+    first_frame = np.array(gif)
+    height, width = first_frame.shape[:2]
+    
+    # Initialize change matrix
+    change_matrix = np.zeros((height, width))
+    
+    # Process each frame
+    previous_frame = None
+    for frame_idx in range(n_frames):
+        gif.seek(frame_idx)
+        current_frame = np.array(gif.convert('RGB'))
+        
+        if previous_frame is not None:
+            # Calculate absolute difference between frames
+            diff = np.abs(current_frame - previous_frame)
+            # Sum the differences across RGB channels
+            frame_diff = np.sum(diff, axis=2)
+            # Add to change matrix
+            change_matrix += frame_diff
+            
+        previous_frame = current_frame
+    
+    # Normalize the change matrix
+    if change_matrix.max() > 0:  # Avoid division by zero
+        change_matrix = change_matrix / change_matrix.max()
+    
+    # Create custom colormap with pastel colors
+    colors = [
+        '#000033',  # Very dark blue for static areas
+        '#B8D0E1',  # Pastel blue
+        '#F5D0E1',  # Pastel pink
+        '#D0E1E1',  # Pastel cyan
+        '#E1D0B8',  # Pastel orange
+        '#E1B8D0',  # Pastel purple
+        '#D0E1B8'   # Pastel lime
+    ]
+    n_bins = 256  # Smooth transitions
+    cmap = LinearSegmentedColormap.from_list('custom_pastel', colors, N=n_bins)
+    
+    # Create the heatmap with dark background
+    plt.style.use('dark_background')
+    fig = plt.figure(figsize=size, facecolor='black')
+    ax = plt.gca()
+    ax.set_facecolor('black')
+    
+    plt.imshow(change_matrix, cmap=cmap)
+    plt.title(title, color='white', pad=20, fontsize=14)
+    plt.axis('off')
+    
+    # Save the heatmap with dark background
+    plt.savefig(output_path, 
+                bbox_inches='tight', 
+                dpi=300, 
+                facecolor='black',
+                edgecolor='none')
+    plt.close()
+    
+    print(f"Heatmap saved as {output_path}")
+
 
 def loss_fn(
         epoch_log_probability_actions: torch.Tensor, epoch_action_rewards: torch.Tensor
